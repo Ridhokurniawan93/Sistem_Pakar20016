@@ -1,0 +1,123 @@
+<?php
+session_start();
+require_once __DIR__ . '/../config/database.php';
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['level'] !== 'admin') {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit();
+}
+
+$action = $_POST['action'] ?? '';
+
+switch ($action) {
+    case 'add':
+        $nisn = $conn->real_escape_string(trim($_POST['nisn']));
+        $nama = $conn->real_escape_string(trim($_POST['nama']));
+        $alamat = $conn->real_escape_string(trim($_POST['alamat']));
+        $password = md5(trim($_POST['password']));
+        
+        if (empty($nisn) || empty($nama) || empty($alamat)) {
+            echo json_encode(['success' => false, 'message' => 'Semua field harus diisi']);
+            exit();
+        }
+        
+        // Check if NISN exists
+        $check = $conn->query("SELECT nisn FROM siswa WHERE nisn = '$nisn'");
+        if ($check && $check->num_rows > 0) {
+            echo json_encode(['success' => false, 'message' => 'NISN sudah terdaftar']);
+            exit();
+        }
+        
+        $conn->begin_transaction();
+        try {
+            $conn->query("INSERT INTO users (username, password, level) VALUES ('$nisn', '$password', 'siswa')");
+            $id_user = $conn->insert_id;
+            $conn->query("INSERT INTO siswa (nisn, nama, alamat, password, id_user) VALUES ('$nisn', '$nama', '$alamat', '$password', $id_user)");
+            $conn->commit();
+            echo json_encode(['success' => true, 'message' => 'Data siswa berhasil ditambahkan']);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'message' => 'Gagal menambahkan: ' . $e->getMessage()]);
+        }
+        break;
+        
+    case 'edit':
+        $nisn_old = $conn->real_escape_string(trim($_POST['nisn_old']));
+        $nisn = $conn->real_escape_string(trim($_POST['nisn']));
+        $nama = $conn->real_escape_string(trim($_POST['nama']));
+        $alamat = $conn->real_escape_string(trim($_POST['alamat']));
+        
+        if (empty($nisn) || empty($nama) || empty($alamat)) {
+            echo json_encode(['success' => false, 'message' => 'Semua field harus diisi']);
+            exit();
+        }
+        
+        $conn->begin_transaction();
+        try {
+            $sql = "UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat' WHERE nisn = '$nisn_old'";
+            
+            // Update password if provided
+            if (!empty(trim($_POST['password']))) {
+                $password = md5(trim($_POST['password']));
+                $sql_siswa = "UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat', password = '$password' WHERE nisn = '$nisn_old'";
+                $sql_user = "UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$nisn', u.password = '$password' WHERE s.nisn = '$nisn_old'";
+                $conn->query($sql_user);
+                $conn->query($sql_siswa);
+            } else {
+                $sql_user = "UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$nisn' WHERE s.nisn = '$nisn_old'";
+                $conn->query($sql_user);
+                $conn->query($sql);
+            }
+            
+            $conn->commit();
+            echo json_encode(['success' => true, 'message' => 'Data siswa berhasil diupdate']);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'message' => 'Gagal mengupdate: ' . $e->getMessage()]);
+        }
+        break;
+        
+    case 'get':
+        $nisn = $conn->real_escape_string(trim($_POST['id']));
+        $result = $conn->query("SELECT * FROM siswa WHERE nisn = '$nisn'");
+        if ($result && $result->num_rows > 0) {
+            $data = $result->fetch_assoc();
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'nisn_old' => $data['nisn'],
+                    'nisn' => $data['nisn'],
+                    'nama' => $data['nama'],
+                    'alamat' => $data['alamat'],
+                    'action' => 'edit'
+                ]
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Data tidak ditemukan']);
+        }
+        break;
+        
+    case 'delete':
+        $nisn = $conn->real_escape_string(trim($_POST['id']));
+        $conn->begin_transaction();
+        try {
+            // Get user id first
+            $result = $conn->query("SELECT id_user FROM siswa WHERE nisn = '$nisn'");
+            if ($result && $result->num_rows > 0) {
+                $id_user = $result->fetch_assoc()['id_user'];
+                $conn->query("DELETE FROM siswa WHERE nisn = '$nisn'");
+                $conn->query("DELETE FROM users WHERE id_user = $id_user");
+            }
+            $conn->commit();
+            echo json_encode(['success' => true, 'message' => 'Data siswa berhasil dihapus']);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'message' => 'Gagal menghapus: ' . $e->getMessage()]);
+        }
+        break;
+        
+    default:
+        echo json_encode(['success' => false, 'message' => 'Action tidak valid']);
+}
+?>
