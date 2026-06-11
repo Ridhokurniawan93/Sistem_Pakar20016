@@ -1,7 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/../config/database.php';
 session_destroy();
-$project_folder = basename(dirname(__DIR__));
-header("Location: /" . $project_folder . "/auth/login.php");
-exit();
+redirect('auth/login.php');
 ?>
