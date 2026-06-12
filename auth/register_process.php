@@ -7,12 +7,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $nisn = $conn->real_escape_string(trim($_POST['nisn']));
+$username = $conn->real_escape_string(trim($_POST['username']));
 $nama = $conn->real_escape_string(trim($_POST['nama']));
 $alamat = $conn->real_escape_string(trim($_POST['alamat']));
 $password = trim($_POST['password']);
 $konfirmasi = trim($_POST['konfirmasi_password']);
 
 // Validation
+if (empty($username)) {
+    $_SESSION['flash_message'] = showAlert('Username tidak boleh kosong!', 'danger');
+    redirect('auth/register.php');
+}
+
 if ($password !== $konfirmasi) {
     $_SESSION['flash_message'] = showAlert('Password dan konfirmasi password tidak sama!', 'danger');
     redirect('auth/register.php');
@@ -30,10 +36,10 @@ if ($check && $check->num_rows > 0) {
     redirect('auth/register.php');
 }
 
-// Check username (NISN as username) already exists
-$check_user = $conn->query("SELECT id_user FROM users WHERE username = '$nisn'");
+// Check username already exists
+$check_user = $conn->query("SELECT id_user FROM users WHERE username = '$username'");
 if ($check_user && $check_user->num_rows > 0) {
-    $_SESSION['flash_message'] = showAlert('Username (NISN) sudah digunakan!', 'danger');
+    $_SESSION['flash_message'] = showAlert('Username sudah digunakan! Pilih username lain.', 'danger');
     redirect('auth/register.php');
 }
 
@@ -42,8 +48,8 @@ $hashed_password = md5($password);
 $conn->begin_transaction();
 
 try {
-    // Insert into users
-    $sql_user = "INSERT INTO users (username, password, level) VALUES ('$nisn', '$hashed_password', 'siswa')";
+    // Insert into users (with custom username)
+    $sql_user = "INSERT INTO users (username, password, level) VALUES ('$username', '$hashed_password', 'siswa')";
     $conn->query($sql_user);
     $id_user = $conn->insert_id;
     
@@ -53,7 +59,7 @@ try {
     
     $conn->commit();
     
-    $_SESSION['flash_message'] = showAlert('Registrasi berhasil! Silakan login.', 'success');
+    $_SESSION['flash_message'] = showAlert('Registrasi berhasil! Silakan login dengan username: ' . htmlspecialchars($username), 'success');
     redirect('auth/login.php');
     
 } catch (Exception $e) {

@@ -77,7 +77,7 @@ if (isLoggedIn()) {
                 <div class="text-center mt-3">
                     <small class="text-white-50">
                         <i class="fas fa-info-circle me-1"></i>
-                        Admin: username <strong>admin</strong>, password <strong>admin123</strong>
+                        Admin: <strong>admin</strong> / <strong>admin123</strong> | Siswa: gunakan username saat daftar
                     </small>
                 </div>
             </div>

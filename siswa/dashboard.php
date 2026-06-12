@@ -3,19 +3,38 @@ $page_title = 'Dashboard Siswa';
 require_once __DIR__ . '/../includes/session_start.php';
 require_once __DIR__ . '/../includes/auth_check.php';
 
-$nisn = $_SESSION['nisn'];
+// Safety check - if siswa session is missing, reload from database
+if (!isset($_SESSION['nisn']) && isset($_SESSION['id_user'])) {
+    $uid = intval($_SESSION['id_user']);
+    $res = $conn->query("SELECT * FROM siswa WHERE id_user = $uid");
+    if ($res && $res->num_rows > 0) {
+        $s = $res->fetch_assoc();
+        $_SESSION['nisn'] = $s['nisn'];
+        $_SESSION['nama'] = $s['nama'];
+    }
+}
+
+$nisn = $_SESSION['nisn'] ?? '';
 $nama = $_SESSION['nama'] ?? '';
 
 // Get student's consultation history
-$histori = $conn->query("SELECT k.id_konsultasi, k.tanggal, j.nama_jurusan, hp.persentase
-    FROM konsultasi k
-    JOIN hasil_penentuan hp ON k.id_konsultasi = hp.id_konsultasi
-    JOIN jurusan j ON hp.id_jurusan = j.id_jurusan
-    WHERE k.nisn = '$nisn'
-    AND hp.persentase = (SELECT MAX(persentase) FROM hasil_penentuan WHERE id_konsultasi = k.id_konsultasi)
-    ORDER BY k.created_at DESC LIMIT 5");
+$histori = false;
+$total_konsultasi = 0;
 
-$total_konsultasi = $conn->query("SELECT COUNT(DISTINCT id_konsultasi) as total FROM konsultasi WHERE nisn = '$nisn'")->fetch_assoc()['total'];
+if (!empty($nisn)) {
+    $histori = $conn->query("SELECT k.id_konsultasi, k.tanggal, j.nama_jurusan, hp.persentase
+        FROM konsultasi k
+        JOIN hasil_penentuan hp ON k.id_konsultasi = hp.id_konsultasi
+        JOIN jurusan j ON hp.id_jurusan = j.id_jurusan
+        WHERE k.nisn = '$nisn'
+        AND hp.persentase = (SELECT MAX(persentase) FROM hasil_penentuan WHERE id_konsultasi = k.id_konsultasi)
+        ORDER BY k.created_at DESC LIMIT 5");
+
+    $result_total = $conn->query("SELECT COUNT(DISTINCT id_konsultasi) as total FROM konsultasi WHERE nisn = '$nisn'");
+    if ($result_total && $result_total->num_rows > 0) {
+        $total_konsultasi = $result_total->fetch_assoc()['total'];
+    }
+}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>

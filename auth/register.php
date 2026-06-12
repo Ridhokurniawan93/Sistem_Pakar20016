@@ -51,6 +51,17 @@ if (isLoggedIn()) {
                                 </div>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-primary text-white">
+                                        <i class="fas fa-user-circle"></i>
+                                    </span>
+                                    <input type="text" class="form-control" name="username" 
+                                           placeholder="Buat username untuk login" required>
+                                </div>
+                                <small class="text-muted">Username digunakan untuk login</small>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label">Nama Lengkap</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-primary text-white">

@@ -78,6 +78,11 @@ include __DIR__ . '/../includes/header.php';
                                placeholder="Masukkan NISN">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" required 
+                               placeholder="Username untuk login">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Nama Lengkap</label>
                         <input type="text" class="form-control" name="nama" required 
                                placeholder="Masukkan nama lengkap">

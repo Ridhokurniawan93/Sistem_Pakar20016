@@ -13,11 +13,12 @@ $action = $_POST['action'] ?? '';
 switch ($action) {
     case 'add':
         $nisn = $conn->real_escape_string(trim($_POST['nisn']));
+        $username = $conn->real_escape_string(trim($_POST['username']));
         $nama = $conn->real_escape_string(trim($_POST['nama']));
         $alamat = $conn->real_escape_string(trim($_POST['alamat']));
         $password = md5(trim($_POST['password']));
         
-        if (empty($nisn) || empty($nama) || empty($alamat)) {
+        if (empty($nisn) || empty($username) || empty($nama) || empty($alamat)) {
             echo json_encode(['success' => false, 'message' => 'Semua field harus diisi']);
             exit();
         }
@@ -29,9 +30,16 @@ switch ($action) {
             exit();
         }
         
+        // Check if username exists
+        $check_user = $conn->query("SELECT id_user FROM users WHERE username = '$username'");
+        if ($check_user && $check_user->num_rows > 0) {
+            echo json_encode(['success' => false, 'message' => 'Username sudah digunakan']);
+            exit();
+        }
+        
         $conn->begin_transaction();
         try {
-            $conn->query("INSERT INTO users (username, password, level) VALUES ('$nisn', '$password', 'siswa')");
+            $conn->query("INSERT INTO users (username, password, level) VALUES ('$username', '$password', 'siswa')");
             $id_user = $conn->insert_id;
             $conn->query("INSERT INTO siswa (nisn, nama, alamat, password, id_user) VALUES ('$nisn', '$nama', '$alamat', '$password', $id_user)");
             $conn->commit();
@@ -45,29 +53,25 @@ switch ($action) {
     case 'edit':
         $nisn_old = $conn->real_escape_string(trim($_POST['nisn_old']));
         $nisn = $conn->real_escape_string(trim($_POST['nisn']));
+        $username = $conn->real_escape_string(trim($_POST['username']));
         $nama = $conn->real_escape_string(trim($_POST['nama']));
         $alamat = $conn->real_escape_string(trim($_POST['alamat']));
         
-        if (empty($nisn) || empty($nama) || empty($alamat)) {
+        if (empty($nisn) || empty($username) || empty($nama) || empty($alamat)) {
             echo json_encode(['success' => false, 'message' => 'Semua field harus diisi']);
             exit();
         }
         
         $conn->begin_transaction();
         try {
-            $sql = "UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat' WHERE nisn = '$nisn_old'";
-            
             // Update password if provided
             if (!empty(trim($_POST['password']))) {
                 $password = md5(trim($_POST['password']));
-                $sql_siswa = "UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat', password = '$password' WHERE nisn = '$nisn_old'";
-                $sql_user = "UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$nisn', u.password = '$password' WHERE s.nisn = '$nisn_old'";
-                $conn->query($sql_user);
-                $conn->query($sql_siswa);
+                $conn->query("UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat', password = '$password' WHERE nisn = '$nisn_old'");
+                $conn->query("UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$username', u.password = '$password' WHERE s.nisn = '$nisn_old'");
             } else {
-                $sql_user = "UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$nisn' WHERE s.nisn = '$nisn_old'";
-                $conn->query($sql_user);
-                $conn->query($sql);
+                $conn->query("UPDATE siswa SET nisn = '$nisn', nama = '$nama', alamat = '$alamat' WHERE nisn = '$nisn_old'");
+                $conn->query("UPDATE users u JOIN siswa s ON u.id_user = s.id_user SET u.username = '$username' WHERE s.nisn = '$nisn_old'");
             }
             
             $conn->commit();
@@ -80,7 +84,7 @@ switch ($action) {
         
     case 'get':
         $nisn = $conn->real_escape_string(trim($_POST['id']));
-        $result = $conn->query("SELECT * FROM siswa WHERE nisn = '$nisn'");
+        $result = $conn->query("SELECT s.*, u.username FROM siswa s JOIN users u ON s.id_user = u.id_user WHERE s.nisn = '$nisn'");
         if ($result && $result->num_rows > 0) {
             $data = $result->fetch_assoc();
             echo json_encode([
@@ -88,6 +92,7 @@ switch ($action) {
                 'data' => [
                     'nisn_old' => $data['nisn'],
                     'nisn' => $data['nisn'],
+                    'username' => $data['username'],
                     'nama' => $data['nama'],
                     'alamat' => $data['alamat'],
                     'action' => 'edit'
@@ -102,7 +107,6 @@ switch ($action) {
         $nisn = $conn->real_escape_string(trim($_POST['id']));
         $conn->begin_transaction();
         try {
-            // Get user id first
             $result = $conn->query("SELECT id_user FROM siswa WHERE nisn = '$nisn'");
             if ($result && $result->num_rows > 0) {
                 $id_user = $result->fetch_assoc()['id_user'];
